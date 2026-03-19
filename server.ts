@@ -5,6 +5,8 @@ import Database from 'better-sqlite3';
 const app = express();
 const PORT = 3000;
 
+app.use(express.json());
+
 const db = new Database("wadsongs.db");
 
 // Search by artist
@@ -45,7 +47,8 @@ app.post('/song/:id/buy', (req, res) => {
     try {
         const stmt = db.prepare('UPDATE wadsongs SET quantity=quantity-1 WHERE id=?');
         const info = stmt.run(req.params.id);
-        res.json({success: true, id: req.params.id});
+        const didUpdate = info.changes == 1;
+        res.status(didUpdate ? 200 : 404).json({success: didUpdate, id: req.params.id});
     } catch(error) {
         res.status(500).json({error: error});
     }
@@ -56,7 +59,8 @@ app.delete('/song/:id', (req, res) => {
     try {
         const stmt = db.prepare('DELETE FROM wadsongs WHERE id=?');
         const info = stmt.run(req.params.id);
-        res.json({success: true});
+        const didDelete = info.changes == 1;
+        res.status(didDelete ? 200 : 404).json({success: didDelete});
     } catch(error) {
         res.status(500).json({error: error});
     }
