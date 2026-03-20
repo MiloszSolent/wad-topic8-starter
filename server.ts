@@ -1,6 +1,8 @@
 import ViteExpress from 'vite-express';
 import express from 'express';
 import Database from 'better-sqlite3';
+import expressSession from 'express-session';
+import betterSqlite3Session from 'express-session-better-sqlite3';
 
 const app = express();
 const PORT = 3000;
@@ -8,6 +10,72 @@ const PORT = 3000;
 app.use(express.json());
 
 const db = new Database("wadsongs.db");
+
+const sessionDb = new Database("session.db");
+const SqliteStore = betterSqlite3Session(expressSession, sessionDb)
+
+app.use(expressSession({
+    // Specify the session store to be used.
+    store: new SqliteStore(), 
+
+    // a secret used to digitally sign session cookie, use something unguessable (e.g. random bytes as hex)
+    // in a real application.
+    secret: 'BinnieAndClyde', 
+
+    // see the documentation for more details, the value you should set it to depends on the inner workings of your session store.
+    // For express-session-better-sqlite3, it should be true.
+    resave: true, 
+
+    // saves session to store before data is stored in the session 
+    // (disabled as this unnecessarily saves empty sessions in the database)
+    saveUninitialized: false, 
+
+    // reset cookie for every HTTP response.
+    // The cookie expiration time will be reset, to 'maxAge' milliseconds beyond the time of the response.
+    // Thus, the session cookie will expire after 10 mins of inactivity
+    // (no HTTP request made and consequently no response sent) when 'rolling' is true.
+    // If 'rolling' is false, the session cookie would expire after 10 minutes even if the user was active, 
+    // which would be very annoying - so true is the sensible setting.
+    rolling: true, 
+
+    // destroy session (remove it from the data store) when it is set to null, deleted etc
+    unset: 'destroy', 
+
+    // useful if using a proxy to access your server, as you will probably be doing in a production environment: 
+    // this allows the session cookie to pass through the proxy
+    proxy: true, 
+
+    // properties of session cookie
+    cookie: { 
+        maxAge: 600000, // 600000 ms = 10 mins expiry time
+        httpOnly: false // allow client-side code to access the cookie, otherwise it's kept to the HTTP messages
+    }
+}));
+
+app.post('/login', (req, res) => {
+    console.log(`/login: ${JSON.stringify(req.body)}`);
+    const record = db.prepare(`SELECT username FROM ht_users WHERE username=? AND password=?`).get(req.body.username, req.body.password);
+
+    if(record != null) {
+        console.log("found user");
+        req.session.username = req.body.username;
+        res.json({username: req.body.username});
+    }
+    else {
+        console.log("can't find user");
+        res.status(401).json({username: null})
+    }
+});
+
+app.post('/logout', (req, res) => {
+    req.session.destroy(()=> {
+        res.json({loggedout: true});
+    })
+});
+
+app.get('/login', (req, res) => {
+    res.json({username: req.session.username || null});
+});
 
 // Search by artist
 app.get('/artist/:artist', (req, res) => {
@@ -78,5 +146,5 @@ app.post('/song/create', (req, res) => {
 });
 
 ViteExpress.listen(app, PORT, () => { 
-    console.log(`Server running on port ${PORT}.`);
+    console.log(`Server running on port ${PORT}. Updated`);
 });
