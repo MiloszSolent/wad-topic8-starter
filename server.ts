@@ -53,16 +53,13 @@ app.use(expressSession({
 }));
 
 app.post('/login', (req, res) => {
-    console.log(`/login: ${JSON.stringify(req.body)}`);
     const record = db.prepare(`SELECT username FROM ht_users WHERE username=? AND password=?`).get(req.body.username, req.body.password);
 
     if(record != null) {
-        console.log("found user");
         req.session.username = req.body.username;
         res.json({username: req.body.username});
     }
     else {
-        console.log("can't find user");
         res.status(401).json({username: null})
     }
 });
